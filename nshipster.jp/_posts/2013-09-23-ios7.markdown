@@ -1,0 +1,263 @@
+---
+layout: post
+title: "iOS 7"
+ref: "https://developer.apple.com/library/ios/releasenotes/General/WhatsNewIniOS/Articles/iOS7.html"
+framework: ""
+description: "NDA（秘密保持契約）が解除され、iOS 7の新APIについてようやく話せるようになりました。"
+---
+
+ようやくNDA（秘密保持契約）が解除されたので、iOS 7から加えられた新しいAPIについて、ついに話せるようになった。話すことは**かなり**ある。WWDCの基調講演でのApple自らのカウントによると、その数『1500の新API』ということになる（もちろんその中の少なくないものが、たとえば`id`を`instancetype`に変更した、程度の変更であるにせよ、数字が大きいことには変わりはない）。
+
+これからの来るべき数週間、ここでiOS 7の新規フィチャーの数々を取り上げていくことにする。しかし今週は、メジャーなバージョンアップにつきものの狂騒をあえて避け、見過ごされがちなジェムをいくつか紹介したい： `NSData` Base64 encoding, `NSURLComponents`, `NSProgress`, `NSProcessInfo` activities, `CIDetectorSmile`, `CIDetectorEyeBlink`, `SSReadingList`, `AVCaptureMetaDataOutput`, `AVSpeechSynthesizer`, そして `MKDistanceFormatter`です。
+
+---
+
+## NSData (NSDataBase64Encoding)
+
+[Base64](http://ja.wikipedia.org/wiki/Base64) はバイナリデータをASCIIテキストにエンコードする方式のことで、数多のテクノロジーが生のバイナリではなくテキストを扱う前提でデザインされているために、現在ウェブのあらゆるところで利用されている。たとえばCSSは [inline `data://` URIs](http://en.wikipedia.org/wiki/Data_URI_scheme)を用いることで、（かなりの確率でBase64でエンコードされている）イメージを埋め込むことができる。 [Basic `Authentication` headers](http://en.wikipedia.org/wiki/Basic_access_authentication)も同様に、ユーザーネームとパスワードのペアをBase64でエンコードしている（なにもしないよりかは幾分まし、程度の差ではあれ）。
+
+もうかなりの長期にわたって、この基本中の基本ともいえる機能はMIA（ミッシング・イン・アクション／戦闘中行方不明）状態だった。結果、何千ものデベロッパーが、どこかのフォーラムでみつけてきたコードの一部をコピー／ペーストしてその場しのぎをするしかなかったのである。これはほんとうにうっとうしい欠落（たらない）だった。ちょうどiOS 5以前のJSONのような感じで。
+
+でももう大丈夫！ iOS 7がついにBase64に切り込んでくれたのだ：
+
+~~~{objective-c}
+NSString *string = @"Lorem ipsum dolor sit amet.";
+NSString *base64EncodedString = [[string dataUsingEncoding:NSUTF8StringEncoding] base64EncodedStringWithOptions:0];
+
+NSLog(@"%@", base64EncodedString); // @"TG9yZW0gaXBzdW0gZG9sYXIgc2l0IGFtZXQu"
+~~~
+
+## NSURLComponents & NSCharacterSet (NSURLUtilities)
+
+FoundationにはURIをあつかう機能が潤沢に用意されている。残念ながら、URLをあつかうAPIの多くが`NSString`を使いまくっていたりするのだけど。それというのも`NSURL`がイミュータブルなためだ。
+
+`NSURLComponents` が状況を著しく改善してくれる。これは要するに`NSMutableURL`なのだから。
+
+~~~{objective-c}
+NSURLComponents *components = [NSURLComponents componentsWithString:@"http://nshipster.com"];
+components.path = @"/iOS7";
+components.query = @"foo=bar";
+
+NSLog(@"%@", components.scheme); // @"http"
+NSLog(@"%@", [components URL]); // @"http://nshipster.com/iOS7?foo=bar"
+~~~
+
+URL componentsのプロパティには、それぞれ`percetEncoded*`されたバリエーション（例：`user`には`percentEncodedUser`という具合）が存在していて、URI上でのスペシャルキャラクターのパーセントエンコーディングを先に行ってくれる。
+
+<!-- Or rather...
+forego 2 |fôrˈgō|
+verb (foregoes, foregoing, forewent; past participle foregone) [ with obj. ] archaic
+precede in place or time.
+-->
+「じゃあ、どのキャラクターがスペシャルなのか」って？ それはURLのどの部位の話をしているかで変わってくる。そのためにiOS 7では、`NSCharacterSet`にURLで利用できるキャラクターのための新カテゴリーが追加されたのだ。よかった。
+
+- `+ (id)URLUserAllowedCharacterSet`
+- `+ (id)URLPasswordAllowedCharacterSet`
+- `+ (id)URLHostAllowedCharacterSet`
+- `+ (id)URLPathAllowedCharacterSet`
+- `+ (id)URLQueryAllowedCharacterSet`
+- `+ (id)URLFragmentAllowedCharacterSet`
+
+
+## NSProgress
+
+`NSProgress`は説明のしづらいクラスである。時にオブザーバーとして、時にデリゲートやコーディネーターとしての役割もはたすし、レポートの差配役、進捗状況のモニターといった働きもする。OS Xではシステムレベルのプロセスに統合されているのと同時に、ユーザーと直接やり取りするUIにプラグインすることもできる。ハンドラーに対して停止やキャンセルといった指示を行うことができ、その後実際に作業を行うオペレーションへと送り出すのだ。
+
+完了やトータルユニットといったものにすこしでも関連していれば、それは`NSProgress`候補である。たとえそれがファイルに書き込まれたバイトであれ、重いレンダリング作業のフレーム数であれ、あるいはサーバーからダウンロードされるファイルであれ。
+
+`NSProgress`は全体の進捗度をローカライズされたかたちでレポートするのに使うことができる。
+
+~~~{objective-c}
+NSProgress *progress = [NSProgress progressWithTotalUnitCount:100];
+progress.completedUnitCount = 42;
+
+NSLog(@"%@", [progress localizedDescription]); // 42% completed
+~~~
+
+...or it can be given a handler for stopping work entirely:
+あるいは、作業を完全に止めてしまうこともできる。
+
+~~~{objective-c}
+NSTimer *timer = [NSTimer timerWithTimeInterval:1.0 
+                                         target:self 
+                                       selector:@selector(incrementCompletedUnitCount:) userInfo:nil 
+                                        repeats:YES];
+
+progress.cancellationHandler = ^{
+    [timer invalidate];
+};
+
+[progress cancel];
+~~~
+
+すくなくとも現状では、`NSProgress`はMac OS X 10.9 Mavericks においてこそその真価を発揮するのだが、それでもシェアされたワークユニットのパターンをカプセル化するのに便利なクラスである、という事実に変わりはない。
+
+## NSArray -firstObject
+
+やったぞ！ `NSRangeException`除けに便利だった`-lastObject`がついに`NSArray`の先頭のメンバーにも拡張されたのだ（まあ実のところプライベートなAPIとしては**iOS 4からすでに存在していた**のだけど、それはいっても詮無いことである）。
+
+とくとご覧あれ！
+
+~~~{objective-c}
+NSArray *array = @[@1, @2, @3];
+
+NSLog(@"First Object: %@", [array firstObject]); // 1
+NSLog(@"Last Object: %@", [array lastObject]); // 3
+~~~
+
+サイコー！
+
+## CIDetectorSmile & CIDetectorEyeBlink
+
+> それにしてもよくよく考えてみたら、我々が自分でとんでもなく恥ずかしい写真を撮ることのできるデバイスが、同時にそれを無数の人々に届けることのできるデバイスであるという事実は、われわれを少しは心配させてもいいんじゃないだろうか？
+
+閑話休題。
+
+iOS 5以降、Core Image frameworkは顔の検出および認識機能を、`CIDetector`クラスとして提供している。もし写真から顔を検出だけでは不足というなら、iOS 7からはなんと笑顔や目を閉じていることすら判別できるのだ。\*shudder\*
+
+In yet another free app idea, here's a snippet that might be used by a camera that only saves pictures of smiling faces:
+
+Yet AnotherなフリーAppのアイデア：以下のコードを使ったカメラは笑顔だけをセーブする。
+
+~~~{objective-c}
+@import CoreImage;
+~~~
+
+~~~{objective-c} 
+CIDetector *smileDetector = [CIDetector detectorOfType:CIDetectorTypeFace
+                                context:context 
+                                options:@{CIDetectorTracking: @YES, 
+                                          CIDetectorAccuracy: CIDetectorAccuracyLow}];
+NSArray *features = [smileDetector featuresInImage:image options:@{CIDetectorSmile:@YES}];
+if (([features count] > 0) && (((CIFaceFeature *)features[0]).hasSmile)) {
+    UIImageWriteToSavedPhotosAlbum(image, self, @selector(didFinishWritingImage), features);
+} else {
+    self.label.text = @"Say Cheese!"
+}
+~~~
+
+## AVCaptureMetaDataOutput
+
+UPCやQRCode、あらゆる種類のバーコードを`AVCaptureMetaDataOutput`を使ってスキャンするのもiOS 7から追加された。必要なのは`AVCaptureSession`のアウトプットとして（スキャンしたデータを）セットし、（それぞれのフォーマットに合わせて）`captureOutput:didOutputMetadataObjects:fromConnection:`メソッドを実装することだけ。
+
+~~~{objective-c}
+@import AVFoundation;
+~~~
+
+~~~{objective-c}
+AVCaptureSession *session = [[AVCaptureSession alloc] init];
+AVCaptureDevice *device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
+NSError *error = nil;
+
+AVCaptureDeviceInput *input = [AVCaptureDeviceInput deviceInputWithDevice:device
+                                                                    error:&error];
+if (input) {
+    [session addInput:input];
+} else {
+    NSLog(@"Error: %@", error);
+}
+
+AVCaptureMetadataOutput *output = [[AVCaptureMetadataOutput alloc] init];
+[output setMetadataObjectsDelegate:self queue:dispatch_get_main_queue()];
+[session addOutput:output];
+[output setMetadataObjectTypes:@[AVMetadataObjectTypeQRCode]];
+
+[session startRunning];
+~~~
+
+~~~{objective-c}
+#pragma mark - AVCaptureMetadataOutputObjectsDelegate
+
+- (void)captureOutput:(AVCaptureOutput *)captureOutput
+didOutputMetadataObjects:(NSArray *)metadataObjects
+       fromConnection:(AVCaptureConnection *)connection
+{
+    NSString *QRCode = nil;
+    for (AVMetadataObject *metadata in metadataObjects) {
+        if ([metadata.type isEqualToString:AVMetadataObjectTypeQRCode]) {
+            // This will never happen; nobody has ever scanned a QR code... ever
+            QRCode = [(AVMetadataMachineReadableCodeObject *)metadata stringValue];
+            break;
+        }
+    }
+
+    NSLog(@"QR Code: %@", QRCode);
+}
+~~~
+
+`AVFoundation`はおそらく一般に知られているもの全て（そしておそらくは知られていないものもいくつか）のコードに対応している：
+
+- `AVMetadataObjectTypeUPCECode`
+- `AVMetadataObjectTypeCode39Code`
+- `AVMetadataObjectTypeCode39Mod43Code`
+- `AVMetadataObjectTypeEAN13Code`
+- `AVMetadataObjectTypeEAN8Code`
+- `AVMetadataObjectTypeCode93Code`
+- `AVMetadataObjectTypeCode128Code`
+- `AVMetadataObjectTypePDF417Code`
+- `AVMetadataObjectTypeQRCode`
+- `AVMetadataObjectTypeAztecCode`
+
+If nothing else, `AVCaptureMetaDataOutput` makes it possible to easily create a Passbook pass reader for the iPhone and iPad. There's still a lot of unrealized potential in Passbook, so here's to hoping that this API will be a factor in more widespread adoption.
+
+うまくすれば、`AVCaptureMetaDataOutput`を使ってiPhoneやiPadのPassbookリーダーを簡単につくることもできる。Passbookにはいまだ掘り起こされていない可能性が手つかずでまだまだ残っている。このAPIがさらなるPassbookの普及の一助になればと思う。
+
+## SSReadingList
+
+Even though the number of people who have actually read something saved for later is only marginally greater than [the number of people who have ever used a QR code](http://picturesofpeoplescanningqrcodes.tumblr.com), it's nice that iOS 7 adds a way to add items to the Safari reading list with the new Safari Services framework.
+
+後で読むためにセーブした記事なりをその後実際に読んでいるというひとは、QRCodeを利用したことがあるひとよりもすこし多いぐらいしかいないのだが、それでもiOS 7でSafariのリーディングリストにSafari Services frameworkを介してアイテムを加えられるようになったのは良いことだ。
+
+~~~{objective-c}
+@import SafariServices;
+~~~
+
+~~~{objective-c}
+NSURL *URL = [NSURL URLWithString:@"http://nshipster.com/ios7"];
+[[SSReadingList defaultReadingList] addReadingListItemWithURL:URL
+                                                        title:@"NSHipster"
+                                                  previewText:@"..." 
+                                                        error:nil];
+~~~
+
+## AVSpeechSynthesizer
+
+
+Text-to-Speechは1960年代に誕生して以降、アクセシビリティやいたずらを熱心に追求するひとびとにとって、ずっとコンピューターの目玉機能として存在してきた。
+
+iOS 7 brings the power of Siri with the convenience of a [Speak & Spell](http://en.wikipedia.org/wiki/Speak_%26_Spell_%28toy%29) in a new class `AVSpeechSynthesizer`:
+
+iOS 7はSiriの能力を[Speak & Spell（訳注：玩具の名前）](http://en.wikipedia.org/wiki/Speak_%26_Spell_%28toy%29)の簡便さとともに、新クラス`AVSpeechSynthesizer`へと押し込めた。
+
+~~~{objective-c}
+AVSpeechSynthesizer *synthesizer = [[AVSpeechSynthesizer alloc] init];
+AVSpeechUtterance *utterance = [AVSpeechUtterance speechUtteranceWithString:@"Just what do you think you're doing, Dave?"];
+utterance.rate = AVSpeechUtteranceMinimumSpeechRate; // Tell it to me slowly
+[synthesizer speakUtterance:utterance];
+~~~
+
+## MKDistanceFormatter
+
+そして最後、このiOS 7機能一覧市を、NSHipsterが「やっとか！」と思わず叫ばずにいられないこの特筆すべきAPIで閉めたいと思う。その名も：`MKDistanceFormatter`.
+
+その名からも分かる通り、`MKDistanceFormatter`は、距離をローカライズされた文字列へと、ヤードポンド法、あるいはメートル法を用いて変換する方法を提供するのだ。
+
+~~~{objective-c}
+@import CoreLocation;
+@import MapKit;
+~~~
+
+~~~{objective-c}
+CLLocation *sanFrancisco = [[CLLocation alloc] initWithLatitude:37.775 longitude:-122.4183333];
+CLLocation *portland = [[CLLocation alloc] initWithLatitude:45.5236111 longitude:-122.675];
+CLLocationDistance distance = [portland distanceFromLocation:sanFrancisco];
+
+MKDistanceFormatter *formatter = [[MKDistanceFormatter alloc] init];
+formatter.units = MKDistanceFormatterUnitsImperial;
+NSLog(@"%@", [formatter stringFromDistance:distance]); // 535 miles
+~~~
+
+---
+
+So there you have it! This was just a small sample of the great new features of iOS 7. Still craving more? Check out Apple's ["What's New in iOS 7"](https://developer.apple.com/library/ios/releasenotes/General/WhatsNewIniOS/Articles/iOS7.html) guide on the Developer Center.
+どうでしたか！ 今回はiOS 7のすばらしい新機能の極一部をなぞったに過ぎません。まだまだ足らない？ Appleのデベロッパー・センターにあるガイドを参照してみてください["What's New in iOS 7"](https://developer.apple.com/library/ios/releasenotes/General/WhatsNewIniOS/Articles/iOS7.html) 
