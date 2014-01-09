@@ -113,11 +113,9 @@ NSLog(@"Last Object: %@", [array lastObject]); // 3
 
 閑話休題。
 
-iOS 5以降、Core Image frameworkは顔の検出および認識機能を、`CIDetector`クラスとして提供している。もし写真から顔を検出だけでは不足というなら、iOS 7からはなんと笑顔や目を閉じていることすら判別できるのだ。\*shudder\*
+iOS 5以降、Core Image frameworkは顔の検出および認識機能を、`CIDetector`クラスとして提供している。もし写真から顔を検出だけでは驚き不足というなら、iOS 7からはなんと笑顔や目を閉じていることすら判別できるのだ\*（おお怖）\*。
 
-In yet another free app idea, here's a snippet that might be used by a camera that only saves pictures of smiling faces:
-
-Yet AnotherなフリーAppのアイデア：以下のコードを使ったカメラは笑顔だけをセーブする。
+Yet AnotherなフリーAppのアイデア：以下のコードを使ったカメラは笑顔だけをセーブする：
 
 ~~~{objective-c}
 @import CoreImage;
@@ -198,13 +196,9 @@ didOutputMetadataObjects:(NSArray *)metadataObjects
 - `AVMetadataObjectTypeQRCode`
 - `AVMetadataObjectTypeAztecCode`
 
-If nothing else, `AVCaptureMetaDataOutput` makes it possible to easily create a Passbook pass reader for the iPhone and iPad. There's still a lot of unrealized potential in Passbook, so here's to hoping that this API will be a factor in more widespread adoption.
-
 うまくすれば、`AVCaptureMetaDataOutput`を使ってiPhoneやiPadのPassbookリーダーを簡単につくることもできる。Passbookにはいまだ掘り起こされていない可能性が手つかずでまだまだ残っている。このAPIがさらなるPassbookの普及の一助になればと思う。
 
 ## SSReadingList
-
-Even though the number of people who have actually read something saved for later is only marginally greater than [the number of people who have ever used a QR code](http://picturesofpeoplescanningqrcodes.tumblr.com), it's nice that iOS 7 adds a way to add items to the Safari reading list with the new Safari Services framework.
 
 後で読むためにセーブした記事なりをその後実際に読んでいるというひとは、QRCodeを利用したことがあるひとよりもすこし多いぐらいしかいないのだが、それでもiOS 7でSafariのリーディングリストにSafari Services frameworkを介してアイテムを加えられるようになったのは良いことだ。
 
@@ -222,10 +216,7 @@ NSURL *URL = [NSURL URLWithString:@"http://nshipster.com/ios7"];
 
 ## AVSpeechSynthesizer
 
-
 Text-to-Speechは1960年代に誕生して以降、アクセシビリティやいたずらを熱心に追求するひとびとにとって、ずっとコンピューターの目玉機能として存在してきた。
-
-iOS 7 brings the power of Siri with the convenience of a [Speak & Spell](http://en.wikipedia.org/wiki/Speak_%26_Spell_%28toy%29) in a new class `AVSpeechSynthesizer`:
 
 iOS 7はSiriの能力を[Speak & Spell（訳注：玩具の名前）](http://en.wikipedia.org/wiki/Speak_%26_Spell_%28toy%29)の簡便さとともに、新クラス`AVSpeechSynthesizer`へと押し込めた。
 
@@ -259,5 +250,4 @@ NSLog(@"%@", [formatter stringFromDistance:distance]); // 535 miles
 
 ---
 
-So there you have it! This was just a small sample of the great new features of iOS 7. Still craving more? Check out Apple's ["What's New in iOS 7"](https://developer.apple.com/library/ios/releasenotes/General/WhatsNewIniOS/Articles/iOS7.html) guide on the Developer Center.
 どうでしたか！ 今回はiOS 7のすばらしい新機能の極一部をなぞったに過ぎません。まだまだ足らない？ Appleのデベロッパー・センターにあるガイドを参照してみてください["What's New in iOS 7"](https://developer.apple.com/library/ios/releasenotes/General/WhatsNewIniOS/Articles/iOS7.html) 
